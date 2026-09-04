@@ -1,0 +1,145 @@
+{
+  "info": {
+    "name": "CampusPulse API Collection",
+    "description": "Production-ready Postman collection for CampusPulse Full-Stack Operations & Triage Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "Triage Preview (NLP / AI)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"raw_text\": \"The AC in AB1-305 has been leaking water since morning and students are almost slipping.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/triage-preview",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "triage-preview"]
+        }
+      }
+    },
+    {
+      "name": "List Categories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/categories",
+          "host": ["{{baseUrl}}"],
+          "path": ["categories"]
+        }
+      }
+    },
+    {
+      "name": "Create Ticket",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"AC Water Leakage in Classroom\",\n  \"description\": \"The AC in AB1-305 has been leaking water since morning and students are almost slipping.\",\n  \"category_id\": 1,\n  \"building\": \"Academic Block 1\",\n  \"room\": \"AB1-305\",\n  \"severity\": \"HIGH\",\n  \"reporter_name\": \"Aarav Mehta\",\n  \"reporter_email\": \"aarav@campus.edu\",\n  \"auto_triage\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      }
+    },
+    {
+      "name": "List All Tickets with Filters",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets?status=OPEN&severity=HIGH",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"],
+          "query": [
+            { "key": "status", "value": "OPEN" },
+            { "key": "severity", "value": "HIGH" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Ticket by Code or ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/CP-2026-100201",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "CP-2026-100201"]
+        }
+      }
+    },
+    {
+      "name": "Update Ticket Status / Assignee",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"admin_actor_name\": \"Admin Desk\",\n  \"resolution_notes\": \"Technician dispatched to inspect AC drainage pipe.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/1",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "1"]
+        }
+      }
+    },
+    {
+      "name": "Get Dashboard Analytics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/analytics/dashboard",
+          "host": ["{{baseUrl}}"],
+          "path": ["analytics", "dashboard"]
+        }
+      }
+    }
+  ]
+}

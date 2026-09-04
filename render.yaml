@@ -1,0 +1,26 @@
+services:
+  # 1. FastAPI Backend Web Service
+  - type: web
+    name: campuspulse-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt && python seed_data.py"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: campuspulse-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: BACKEND_CORS_ORIGINS
+        value: '["*"]'
+
+# 2. Managed PostgreSQL Database
+databases:
+  - name: campuspulse-db
+    databaseName: campuspulse
+    user: campuspulse_admin
+    plan: free
