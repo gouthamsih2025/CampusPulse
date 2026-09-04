@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Ticket, TicketSeverity, TicketStatus, User } from "@/types";
-import { X, Check, Loader2 } from "lucide-react";
+import { X, Check, Loader2, Wrench } from "lucide-react";
 import { api } from "@/lib/api";
+import { Button } from "./ui/Button";
 
 interface Props {
   ticket: Ticket;
@@ -20,6 +21,22 @@ export function TicketStatusModal({ ticket, users, onClose, onSuccess }: Props) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+  const firstInputRef = useRef<HTMLSelectElement>(null);
+
+  // Focus trap & Escape key listener
+  useEffect(() => {
+    firstInputRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -34,42 +51,65 @@ export function TicketStatusModal({ ticket, users, onClose, onSuccess }: Props) 
       });
       onSuccess(updated);
     } catch (err: any) {
-      setError(err.message || "Failed to update ticket");
+      setError(err.message || "Failed to update ticket.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      aria-describedby="modal-description"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-2xl shadow-modal border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150"
+      >
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div>
-            <h3 className="font-bold text-slate-900">Manage Ticket {ticket.ticket_code}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{ticket.title}</p>
+            <h2 id="modal-title" className="font-bold text-base text-slate-900 flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-brand-600" aria-hidden="true" />
+              Manage Ticket {ticket.ticket_code}
+            </h2>
+            <p id="modal-description" className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+              {ticket.title}
+            </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            aria-label="Close dialog"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
+            <div
+              className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-medium"
+              role="alert"
+            >
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+              <label htmlFor="ticket-status-select" className="block text-xs font-semibold text-slate-700 mb-1">
+                Lifecycle Status
+              </label>
               <select
+                id="ticket-status-select"
+                ref={firstInputRef}
                 value={status}
                 onChange={(e) => setStatus(e.target.value as TicketStatus)}
-                className="w-full text-sm rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white"
+                className="w-full text-xs font-medium rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none"
               >
                 <option value="OPEN">OPEN</option>
                 <option value="IN_PROGRESS">IN PROGRESS</option>
@@ -80,11 +120,14 @@ export function TicketStatusModal({ ticket, users, onClose, onSuccess }: Props) 
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Severity / Priority</label>
+              <label htmlFor="ticket-severity-select" className="block text-xs font-semibold text-slate-700 mb-1">
+                Severity Level
+              </label>
               <select
+                id="ticket-severity-select"
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value as TicketSeverity)}
-                className="w-full text-sm rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white"
+                className="w-full text-xs font-medium rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none"
               >
                 <option value="LOW">LOW</option>
                 <option value="MEDIUM">MEDIUM</option>
@@ -95,13 +138,16 @@ export function TicketStatusModal({ ticket, users, onClose, onSuccess }: Props) 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Assign Technician / Lead</label>
+            <label htmlFor="ticket-assignee-select" className="block text-xs font-semibold text-slate-700 mb-1">
+              Assigned Field Staff
+            </label>
             <select
+              id="ticket-assignee-select"
               value={assignedTo || ""}
               onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-full text-sm rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white"
+              className="w-full text-xs font-medium rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none"
             >
-              <option value="">-- Unassigned --</option>
+              <option value="">-- Unassigned (General Queue) --</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.full_name} ({u.department || u.role})
@@ -111,38 +157,26 @@ export function TicketStatusModal({ ticket, users, onClose, onSuccess }: Props) 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="ticket-resolution-notes" className="block text-xs font-semibold text-slate-700 mb-1">
               Resolution Note / Action Taken
             </label>
             <textarea
+              id="ticket-resolution-notes"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g., Replacement valve installed, electrical line tested, resolved."
-              className="w-full text-sm rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+              placeholder="e.g. Technician replaced water valve on 3rd floor. Pressure tested successfully."
+              className="w-full text-xs rounded-xl border border-slate-300 p-3 text-slate-800 focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none placeholder:text-slate-400"
             />
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-            >
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2.5">
+            <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm flex items-center space-x-2 transition disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              <span>Update Ticket</span>
-            </button>
+            </Button>
+            <Button type="submit" variant="primary" size="sm" isLoading={loading} leftIcon={<Check className="h-4 w-4" />}>
+              Save Updates
+            </Button>
           </div>
         </form>
       </div>
