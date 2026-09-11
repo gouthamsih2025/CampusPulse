@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
+import ConditionalNavbar from "@/components/ConditionalNavbar";
 import { Footer } from "@/components/Footer";
-
 export const metadata: Metadata = {
   metadataBase: new URL("https://campuspulse.vercel.app"),
   title: {
@@ -73,7 +72,7 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <Navbar />
+        <ConditionalNavbar />
         <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 focus:outline-none">
           {children}
         </main>

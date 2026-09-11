@@ -51,17 +51,37 @@ export default function AdminDashboardPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      
+      const fetchTickets = fetch("/api/issues")
+        .then(r => r.json())
+        .then(data => {
+          const list = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+          return list.map((item: any) => ({
+            id: item._id || item.id,
+            ticket_code: item.ticketCode || item.ticket_code,
+            title: item.title,
+            description: item.description,
+            category_id: 1,
+            category: { id: 1, name: item.category || "General" },
+            building: item.building,
+            room: item.room,
+            severity: item.severity || "MEDIUM",
+            status: item.status || "OPEN",
+            reporter_name: item.reporterName || item.reporter_name,
+            reporter_email: item.reporterEmail || item.reporter_email,
+            created_at: item.createdAt || item.created_at,
+            is_ai_triaged: !!item.is_ai_triaged,
+          }));
+        })
+        .catch(() => []);
+
       const [ticketList, catList, userList, analyticsData] = await Promise.all([
-        api.getTickets({
-          search: search || undefined,
-          status: statusFilter || undefined,
-          severity: severityFilter || undefined,
-          category_id: categoryFilter ? Number(categoryFilter) : undefined,
-        }),
-        api.getCategories(),
-        api.getUsers(),
-        api.getAnalytics().catch(() => null),
+        fetchTickets,
+        api.getCategories().catch(() => []),
+        api.getUsers().catch(() => []),
+        fetch("/api/analytics").then(r => r.json()).catch(() => null),
       ]);
+
       setTickets(ticketList);
       setCategories(catList);
       setUsers(userList);
@@ -91,8 +111,8 @@ export default function AdminDashboardPage() {
   };
 
   const handleModalSuccess = (updated: Ticket) => {
-    setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     setSelectedTicket(null);
+    loadData();
   };
 
   // Sorted Tickets
@@ -117,6 +137,15 @@ export default function AdminDashboardPage() {
       return 0;
     });
   }, [tickets, sortBy, sortOrder]);
+
+  // Split tickets into Active Queue (OPEN, IN_PROGRESS, etc.) and Resolved Section (RESOLVED, CLOSED)
+  const activeTickets = useMemo(() => {
+    return sortedTickets.filter((t) => t.status !== "RESOLVED" && t.status !== "CLOSED");
+  }, [sortedTickets]);
+
+  const resolvedTickets = useMemo(() => {
+    return sortedTickets.filter((t) => t.status === "RESOLVED" || t.status === "CLOSED");
+  }, [sortedTickets]);
 
   const toggleSort = (field: "date" | "severity" | "status") => {
     if (sortBy === field) {
@@ -293,11 +322,11 @@ export default function AdminDashboardPage() {
         <h2 id="table-heading" className="sr-only">Ticket Management Table</h2>
 
         {loading ? (
-          <LoadingState message="Loading tickets queue..." />
-        ) : sortedTickets.length === 0 ? (
+          <LoadingState message="Loading active tickets queue..." />
+        ) : activeTickets.length === 0 ? (
           <EmptyState
-            title="No tickets match criteria"
-            description="Try changing your search terms or clearing the active filters."
+            title="No active tickets in queue"
+            description="All tickets matching criteria are resolved or no open tickets found."
             action={
               hasActiveFilters ? (
                 <Button variant="outline" size="sm" onClick={handleClearFilters}>
@@ -336,7 +365,7 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedTickets.map((t) => (
+                {activeTickets.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50/70 transition">
                     <td className="px-6 py-4 font-medium text-slate-900">
                       <div className="space-y-0.5 max-w-xs">
@@ -416,6 +445,75 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </Card>
+
+      {/* Resolved Issues Section */}
+      {resolvedTickets.length > 0 && (
+        <Card as="section" className="overflow-hidden border-slate-200 bg-slate-50/50">
+          <div className="p-4 border-b border-slate-200 bg-slate-100/60 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <h3 className="font-bold text-slate-800 text-sm">Resolved & Completed Issues History</h3>
+            </div>
+            <Badge variant="success" size="sm">{resolvedTickets.length} Resolved</Badge>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs opacity-90">
+              <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                <tr>
+                  <th scope="col" className="px-6 py-3">Ticket</th>
+                  <th scope="col" className="px-6 py-3">Location & Category</th>
+                  <th scope="col" className="px-6 py-3">Severity</th>
+                  <th scope="col" className="px-6 py-3">Status</th>
+                  <th scope="col" className="px-6 py-3">Completed By</th>
+                  <th scope="col" className="px-6 py-3">Created</th>
+                  <th scope="col" className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/60 bg-white/60">
+                {resolvedTickets.map((t) => (
+                  <tr key={t.id} className="hover:bg-white transition">
+                    <td className="px-6 py-3 font-medium text-slate-900">
+                      <div className="space-y-0.5 max-w-xs">
+                        <span className="font-mono font-bold text-slate-600 block text-xs">
+                          {t.ticket_code}
+                        </span>
+                        <span className="font-medium text-slate-700 line-clamp-1">
+                          {t.title}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3 text-slate-600">
+                      {t.category?.name || "General"} • {t.building}
+                    </td>
+                    <td className="px-6 py-3">
+                      <SeverityBadge severity={t.severity} />
+                    </td>
+                    <td className="px-6 py-3">
+                      <StatusBadge status={t.status} />
+                    </td>
+                    <td className="px-6 py-3 text-slate-600">
+                      {t.assignee?.full_name || "Assigned Team"}
+                    </td>
+                    <td className="px-6 py-3 text-slate-500">
+                      {formatDate(t.created_at)}
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTicket(t)}
+                        className="p-1 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded transition"
+                        title="View / Reopen Ticket"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Ticket Management Modal Dialog */}
       {selectedTicket && (

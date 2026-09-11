@@ -42,14 +42,29 @@ export function TicketStatusModal({ ticket, users, onClose, onSuccess }: Props) 
     setLoading(true);
     setError(null);
     try {
-      const updated = await api.updateTicket(ticket.id, {
-        status,
-        severity,
-        assigned_to: assignedTo,
-        resolution_notes: notes ? notes : undefined,
-        admin_actor_name: "Admin Operations",
+      const res = await fetch(`/api/issues/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status,
+          severity,
+          assignedTo: assignedTo ? String(assignedTo) : undefined,
+          resolutionNotes: notes || undefined,
+        }),
       });
-      onSuccess(updated);
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update ticket.");
+      }
+
+      const updatedTicket: Ticket = {
+        ...ticket,
+        status: data.status || status,
+        severity: data.severity || severity,
+      };
+
+      onSuccess(updatedTicket);
     } catch (err: any) {
       setError(err.message || "Failed to update ticket.");
     } finally {

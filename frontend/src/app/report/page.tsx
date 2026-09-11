@@ -48,15 +48,27 @@ export default function ReportIssuePage() {
 
   // Fetch categories on mount
   useEffect(() => {
-    api
-      .getCategories()
+    const defaultCategories: Category[] = [
+      { id: 1, name: "Electrical", sla_hours: 12, description: "Power supply, lighting, fans, AC units, and switches" },
+      { id: 2, name: "Plumbing", sla_hours: 8, description: "Water leakage, pipe burst, taps, restrooms, and drainage" },
+      { id: 3, name: "IT & Audio-Visual", sla_hours: 24, description: "Wi-Fi connectivity, projectors, monitors, and sound systems" },
+      { id: 4, name: "Furniture & Carpentry", sla_hours: 48, description: "Chairs, desks, whiteboards, doors, locks, and windows" },
+      { id: 5, name: "Cleaning & Hygiene", sla_hours: 6, description: "Waste collection, washroom sanitation, and spills" },
+      { id: 6, name: "Civil & Infrastructure", sla_hours: 72, description: "Ceiling tiles, wall cracks, staircases, and outdoor pathways" },
+      { id: 7, name: "General / Other", sla_hours: 24, description: "Miscellaneous campus requests" },
+    ];
+
+    fetch("/api/categories")
+      .then((r) => r.json())
       .then((data) => {
-        setCategories(data);
-        if (data.length > 0 && !categoryId) {
-          setCategoryId(data[0].id);
-        }
+        const list = Array.isArray(data) && data.length > 0 ? data : defaultCategories;
+        setCategories(list);
+        setCategoryId(list[0].id);
       })
-      .catch((err) => console.error("Failed to load categories:", err))
+      .catch(() => {
+        setCategories(defaultCategories);
+        setCategoryId(defaultCategories[0].id);
+      })
       .finally(() => setLoadingCategories(false));
   }, []);
 
@@ -70,36 +82,48 @@ export default function ReportIssuePage() {
     const timer = setTimeout(async () => {
       try {
         setIsTriaging(true);
-        const preview = await api.triagePreview(description);
-        setTriagePreview(preview);
+        const res = await fetch("/api/triage-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ raw_text: description }),
+        });
+        const preview: TriagePreview = await res.json();
+        
+        if (res.ok && preview) {
+          setTriagePreview(preview);
 
-        // Auto-fill suggested fields
-        if (!building || building === "General Campus") {
-          setBuilding(preview.building);
-        }
-        if (!room || room === "Unspecified Room") {
-          setRoom(preview.room);
-        }
-        if (!title) {
-          setTitle(preview.suggested_title);
-        }
-        setSeverity(preview.severity);
+          // Auto-fill suggested fields
+          if (!building || building === "General Campus") {
+            setBuilding(preview.building);
+          }
+          if (!room || room === "Unspecified Room") {
+            setRoom(preview.room);
+          }
+          if (!title) {
+            setTitle(preview.suggested_title);
+          }
+          if (preview.severity) {
+            setSeverity(preview.severity);
+          }
 
-        // Match category
-        const matchedCat = categories.find(
-          (c) =>
-            c.name.toLowerCase().includes(preview.category_name.toLowerCase()) ||
-            preview.category_name.toLowerCase().includes(c.name.toLowerCase())
-        );
-        if (matchedCat) {
-          setCategoryId(matchedCat.id);
+          // Match category
+          if (preview.category_name && categories.length > 0) {
+            const matchedCat = categories.find(
+              (c) =>
+                c.name.toLowerCase().includes(preview.category_name.toLowerCase()) ||
+                preview.category_name.toLowerCase().includes(c.name.toLowerCase())
+            );
+            if (matchedCat) {
+              setCategoryId(matchedCat.id);
+            }
+          }
         }
       } catch (err) {
         console.warn("Auto-triage preview unavailable:", err);
       } finally {
         setIsTriaging(false);
       }
-    }, 600);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [description, categories]);
@@ -115,21 +139,33 @@ export default function ReportIssuePage() {
     setError(null);
 
     try {
-      const ticket = await api.createTicket({
-        title: title.trim(),
-        description: description.trim(),
-        category_id: Number(categoryId),
-        building: building.trim(),
-        room: room.trim(),
-        severity,
-        reporter_name: reporterName.trim(),
-        reporter_email: reporterEmail.trim(),
-        auto_triage: true,
+      const selectedCatObj = categories.find((c) => c.id === Number(categoryId));
+      const categoryName = selectedCatObj ? selectedCatObj.name : "Infrastructure";
+
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          category: categoryName,
+          building: building.trim(),
+          room: room.trim(),
+          severity,
+          reporterName: reporterName.trim(),
+          reporterEmail: reporterEmail.trim(),
+          is_ai_triaged: true,
+        }),
       });
 
-      setSuccessTicketCode(ticket.ticket_code);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create issue.");
+      }
+
+      setSuccessTicketCode(data.ticketCode || data.ticket_code);
     } catch (err: any) {
-      setError(err.message || "Failed to submit ticket. Please check backend connection.");
+      setError(err.message || "Failed to submit ticket. Please check connection.");
     } finally {
       setSubmitting(false);
     }

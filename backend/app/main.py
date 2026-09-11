@@ -12,6 +12,25 @@ from app.models import *  # Ensure all models are registered with Base
 async def lifespan(app: FastAPI):
     # Auto-create tables on startup (works with both SQLite and Postgres)
     Base.metadata.create_all(bind=engine)
+    # Seed default categories if none exist
+    from app.models.category import Category
+    from app.core.database import SessionLocal
+    from sqlalchemy.orm import Session
+    def _seed_categories():
+        db: Session = SessionLocal()
+        try:
+            if db.query(Category).count() == 0:
+                sample = [
+                    {"name": "Electrical", "icon": "Zap", "description": "Electrical issues", "sla_hours": 24},
+                    {"name": "Plumbing", "icon": "Droplet", "description": "Plumbing issues", "sla_hours": 48},
+                    {"name": "HVAC", "icon": "Thermometer", "description": "Heating/cooling issues", "sla_hours": 72},
+                ]
+                for cat in sample:
+                    db.add(Category(**cat))
+                db.commit()
+        finally:
+            db.close()
+    _seed_categories()
     yield
 
 

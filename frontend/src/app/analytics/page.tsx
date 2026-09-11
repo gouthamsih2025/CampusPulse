@@ -25,9 +25,15 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api
-      .getAnalytics()
-      .then(setData)
+    fetch("/api/analytics")
+      .then((r) => r.json())
+      .then((resData) => {
+        if (resData && !resData.error) {
+          setData(resData);
+        } else {
+          console.error("Analytics response error:", resData?.error);
+        }
+      })
       .catch((err) => console.error("Failed to load analytics:", err))
       .finally(() => setLoading(false));
   }, []);
